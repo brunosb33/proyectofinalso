@@ -1,0 +1,455 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Resguardo en la terminal</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: una sola columna guiada; una regla hidrométrica (nivel del río) marca el avance */
+:root{
+  --bg:#eef2ef;          /* arena lavada */
+  --paper:#fbfcfa;
+  --ink:#16302f;         /* agua profunda */
+  --muted:#4d6663;
+  --line:#cfdad6;
+  --river:#1f6f78;       /* río */
+  --river-soft:#d6ebe9;
+  --signal:#e2702b;      /* chaleco salvavidas */
+  --signal-ink:#ffffff;
+  --ok:#2f8a4e;
+  --term-bg:#102624;
+  --term-fg:#d8f1ec;
+  --term-dim:#7fa6a0;
+  --f-display:"Bricolage Grotesque", "Trebuchet MS", system-ui, sans-serif;
+  --f-body:"Atkinson Hyperlegible", "Segoe UI", system-ui, sans-serif;
+  --f-mono:"JetBrains Mono", ui-monospace, "DejaVu Sans Mono", monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0d1a19;--paper:#132422;--ink:#e3efec;--muted:#9bb5b0;--line:#26403d;
+  --river:#4fb3bb;--river-soft:#173a3a;--signal:#f08a48;--signal-ink:#1a0d04;--ok:#5cc27e;
+  --term-bg:#071312;--term-fg:#d8f1ec;--term-dim:#6f9a94;color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0d1a19;--paper:#132422;--ink:#e3efec;--muted:#9bb5b0;--line:#26403d;
+  --river:#4fb3bb;--river-soft:#173a3a;--signal:#f08a48;--signal-ink:#1a0d04;--ok:#5cc27e;
+  --term-bg:#071312;--term-fg:#d8f1ec;--term-dim:#6f9a94;color-scheme:dark}
+
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:17px;line-height:1.6}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+
+/* Encabezado con ola */
+header.hero{background:var(--river);color:#fff;position:relative;overflow:hidden}
+header.hero .wrap{padding-block:36px 64px;position:relative;z-index:1}
+.eyebrow{font-family:var(--f-mono);font-size:.78rem;letter-spacing:.12em;text-transform:uppercase;opacity:.85}
+h1{font-family:var(--f-display);font-weight:800;font-size:clamp(2rem,7vw,3.3rem);line-height:1.02;margin:.35em 0 .3em;text-wrap:balance}
+h1 span{color:#ffd2b3}
+.hero p{max-width:34em;margin:0;opacity:.95}
+.waves{position:absolute;left:0;right:0;bottom:-1px;height:56px;pointer-events:none}
+.waves svg{position:absolute;bottom:0;width:200%;height:100%;left:0}
+.waves .w1{fill:var(--bg);animation:drift 14s linear infinite}
+.waves .w2{fill:var(--bg);opacity:.5;animation:drift 22s linear infinite reverse}
+@keyframes drift{to{transform:translateX(-50%)}}
+
+/* Regla hidrométrica */
+.gauge{display:flex;align-items:center;gap:14px;margin:22px 0 8px}
+.gauge-bar{flex:1;height:14px;border-radius:7px;background:var(--river-soft);overflow:hidden;position:relative;border:1px solid var(--line)}
+.gauge-fill{position:absolute;inset:0 auto 0 0;width:0;background:repeating-linear-gradient(-45deg,var(--river) 0 8px,color-mix(in srgb,var(--river) 80%,#fff) 8px 16px);transition:width .6s cubic-bezier(.3,1.3,.5,1);background-size:22px 22px;animation:flow 1.2s linear infinite}
+@keyframes flow{to{background-position:22px 0}}
+.gauge-label{font-family:var(--f-mono);font-size:.82rem;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* Pasos */
+nav.steps{position:relative;display:flex;gap:6px;overflow-x:auto;padding:6px 2px 12px;scrollbar-width:thin}
+nav.steps button{flex:0 0 auto;font:600 .82rem var(--f-mono);border:1.5px solid var(--line);background:var(--paper);color:var(--muted);border-radius:999px;padding:6px 12px;cursor:pointer;transition:all .2s}
+nav.steps button[aria-current="step"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+nav.steps button.done{border-color:var(--ok);color:var(--ok)}
+nav.steps button.done::before{content:"✓ "}
+nav.steps button:focus-visible,.btn:focus-visible,.copy:focus-visible,label.check:focus-within{outline:3px solid var(--signal);outline-offset:2px}
+
+main{padding-block:8px 32px}
+section.panel{background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:26px clamp(18px,4vw,34px);animation:rise .45s ease both}
+@keyframes rise{from{opacity:.0;transform:translateY(14px)}to{opacity:1;transform:none}}
+.tag{display:inline-block;font:600 .75rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--signal)}
+h2{font-family:var(--f-display);font-weight:800;font-size:clamp(1.5rem,4.5vw,2rem);line-height:1.1;margin:.2em 0 .4em;text-wrap:balance}
+h3{font-family:var(--f-display);font-weight:500;font-size:1.15rem;margin:1.4em 0 .4em}
+.learn{background:var(--river-soft);border-radius:10px;padding:10px 14px;margin:0 0 14px;font-size:.98rem}
+.learn b{color:var(--river)}
+ol.do{padding-left:0;list-style:none;counter-reset:s;display:grid;gap:10px;margin:0}
+ol.do>li{counter-increment:s;display:grid;grid-template-columns:34px 1fr;gap:10px;align-items:start;min-width:0}
+ol.do>li::before{content:counter(s);display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--ink);color:var(--paper);font:600 .85rem var(--f-mono);margin-top:2px}
+ol.do>li>div{min-width:0}
+code{font-family:var(--f-mono);font-size:.88em;background:var(--river-soft);color:var(--ink);padding:1px 6px;border-radius:5px;white-space:nowrap}
+
+/* Terminal */
+.term{background:var(--term-bg);color:var(--term-fg);border-radius:10px;margin:8px 0 2px;overflow:hidden;min-width:0}
+.term-top{display:flex;align-items:center;gap:6px;padding:7px 10px;border-bottom:1px solid #ffffff14}
+.term-top i{width:9px;height:9px;border-radius:50%;background:#ffffff2a}
+.term-top span{font:400 .72rem var(--f-mono);color:var(--term-dim);margin-left:6px;flex:1}
+.copy{font:600 .72rem var(--f-mono);background:#ffffff14;color:var(--term-fg);border:0;border-radius:6px;padding:4px 9px;cursor:pointer}
+.copy.ok{background:var(--ok);color:#fff}
+.term pre{margin:0;padding:12px 14px;overflow-x:auto;font:400 .86rem/1.55 var(--f-mono)}
+.term pre .c{color:var(--term-dim)}
+.term pre .p{color:#ffb98c}
+
+/* Compruebo */
+.checkbox{margin-top:22px;border:2px dashed var(--line);border-radius:12px;padding:14px 16px}
+.checkbox h3{margin:0 0 8px;font-weight:800;color:var(--river)}
+label.check{display:flex;gap:12px;align-items:flex-start;padding:7px 4px;cursor:pointer;border-radius:8px}
+label.check input{appearance:none;flex:0 0 22px;width:22px;height:22px;margin-top:2px;border:2px solid var(--river);border-radius:6px;display:grid;place-items:center;cursor:pointer;transition:background .2s}
+label.check input::after{content:"";width:6px;height:11px;border:solid var(--signal-ink);border-width:0 3px 3px 0;transform:rotate(45deg) scale(0);margin-top:-3px;transition:transform .25s cubic-bezier(.3,1.6,.5,1)}
+label.check input:checked{background:var(--ok);border-color:var(--ok)}
+label.check input:checked::after{transform:rotate(45deg) scale(1);border-color:#fff}
+label.check input:checked+span{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--ok)}
+.extra{margin-top:16px;padding:12px 14px;border-radius:10px;background:color-mix(in srgb,var(--signal) 12%,var(--paper));font-size:.97rem}
+.extra b{color:var(--signal)}
+
+.mission{display:grid;gap:8px;margin:14px 0}
+.mission div{display:grid;grid-template-columns:30px 1fr;gap:8px;align-items:start;padding:10px 12px;border:1px solid var(--line);border-radius:10px;animation:rise .5s ease both}
+.mission div:nth-child(2){animation-delay:.08s}.mission div:nth-child(3){animation-delay:.16s}.mission div:nth-child(4){animation-delay:.24s}.mission div:nth-child(5){animation-delay:.32s}
+.mission b{font:800 1.05rem var(--f-display);color:var(--signal)}
+.rule{border-left:4px solid var(--signal);padding:6px 12px;margin:16px 0 0;font-style:italic}
+
+table{border-collapse:collapse;width:100%;font-size:.93rem}
+.tbl{overflow-x:auto;margin:8px 0}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font:600 .76rem var(--f-mono);text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+
+.navbtns{display:flex;justify-content:space-between;gap:10px;margin-top:22px;flex-wrap:wrap}
+.btn{font:700 1rem var(--f-body);border-radius:10px;padding:11px 18px;cursor:pointer;border:2px solid var(--ink);background:transparent;color:var(--ink);transition:transform .15s}
+.btn.primary{background:var(--signal);border-color:var(--signal);color:var(--signal-ink)}
+.btn:hover{transform:translateY(-2px)}
+.btn[disabled]{opacity:.35;cursor:default;transform:none}
+.help-btn{position:fixed;right:calc(16px + env(safe-area-inset-right,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));z-index:5;border-radius:999px;box-shadow:0 6px 18px #0003;background:var(--ink);color:var(--paper);border-color:var(--ink)}
+dialog{border:0;border-radius:14px;padding:0;max-width:min(640px,calc(100vw - 32px));background:var(--paper);color:var(--ink)}
+dialog::backdrop{background:#0b1a1999}
+dialog .in{padding:22px}
+.done-msg{text-align:center;padding:10px 0 0}
+.done-msg .big{font:800 2.2rem var(--f-display);color:var(--ok)}
+
+footer{border-top:1px solid var(--line);margin-top:10px}
+footer .wrap{padding-block:22px 80px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;color:var(--muted);font-size:.9rem}
+footer strong{color:var(--ink);font-family:var(--f-display)}
+
+
+.goal{border:2px solid var(--river);border-radius:12px;padding:12px 16px;margin:0 0 6px;position:relative}
+.goal>span{position:absolute;top:-11px;left:12px;background:var(--paper);padding:0 6px;font:800 .8rem var(--f-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--river)}
+.goal p{margin:.2em 0}
+.hints{margin-top:20px;background:var(--river-soft);border-radius:12px;padding:14px 16px}
+.hints-title{margin:0 0 10px;font:700 .9rem var(--f-body);color:var(--river)}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{font:600 .88rem var(--f-mono);background:var(--paper);color:var(--ink);border:1.5px solid var(--line);border-radius:8px;padding:6px 11px;cursor:pointer;transition:transform .15s,background .2s,border-color .2s}
+.chip:hover{transform:translateY(-2px);border-color:var(--river)}
+.chip.seen{border-color:var(--river);color:var(--river)}
+.chip[aria-pressed="true"]{background:var(--signal);border-color:var(--signal);color:var(--signal-ink)}
+.chip:focus-visible{outline:3px solid var(--signal);outline-offset:2px}
+.hint-panel{margin-top:12px;min-height:3em}
+.hint-empty{margin:0;color:var(--muted);font-size:.95rem;font-style:italic}
+.hint-card{background:var(--paper);border-radius:10px;padding:12px 14px;animation:pop .35s cubic-bezier(.3,1.4,.5,1) both;min-width:0}
+@keyframes pop{from{opacity:0;transform:translateY(8px) scale(.97)}to{opacity:1;transform:none}}
+.hint-card .cmd{font:800 1.25rem var(--f-mono);color:var(--signal)}
+.hint-card p{margin:.3em 0}
+.hint-card .lbl{font:600 .72rem var(--f-mono);text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.hint-card .tip{font-size:.92rem;color:var(--muted)}
+.hint-card .term{margin-top:4px}
+@media (prefers-reduced-motion: reduce){*,*::before,*::after{animation:none!important;transition:none!important}}
+</style>
+
+<header class="hero">
+  <div class="wrap">
+    <div class="eyebrow">UTU Bella Unión · Programación · Mini proyecto individual</div>
+    <h1>Resguardo en la <span>terminal</span></h1>
+    <p>Dos semanas, seis actividades y un script Bash que ayuda cuando el río crece. Avanzá paso a paso y marcá cada control al terminar.</p>
+  </div>
+  <div class="waves" aria-hidden="true">
+    <svg class="w2" viewBox="0 0 1200 56" preserveAspectRatio="none"><path d="M0 30 Q75 10 150 30 T300 30 T450 30 T600 30 T750 30 T900 30 T1050 30 T1200 30 V56 H0Z"/></svg>
+    <svg class="w1" viewBox="0 0 1200 56" preserveAspectRatio="none"><path d="M0 38 Q100 22 200 38 T400 38 T600 38 T800 38 T1000 38 T1200 38 V56 H0Z"/></svg>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="gauge">
+    <span class="gauge-label">Nivel de avance</span>
+    <div class="gauge-bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" id="gauge"><div class="gauge-fill" id="gaugeFill"></div></div>
+    <span class="gauge-label" id="gaugeText">0 / 15</span>
+  </div>
+  <nav class="steps" id="steps" aria-label="Partes del proyecto"></nav>
+
+  <!-- 0 MISIÓN -->
+  <section class="panel" data-title="Misión">
+    <span class="tag">Punto de partida</span>
+    <h2>Tu misión</h2>
+    <p>Cuando el río crece, muchas familias de la zona tienen que dejar sus casas. En esos días, la UTU de Bella Unión funciona como lugar de resguardo: recibe a familias evacuadas y también donaciones de ropa, frazadas, agua y alimentos.</p>
+    <p>El problema: todo se anota en papeles que se mojan o se pierden, y nadie sabe bien qué llegó ni a quién se entregó. La coordinación del resguardo te pidió ayuda a vos.</p>
+    <h3>Vas a crear <code>resguardo.sh</code>, un script que desde la terminal:</h3>
+    <div class="mission">
+      <div><b>1</b><span>Arme las carpetas del resguardo.</span></div>
+      <div><b>2</b><span>Anote una donación recibida y su cantidad.</span></div>
+      <div><b>3</b><span>Anote una entrega, a quién se dio y la fecha.</span></div>
+      <div><b>4</b><span>Muestre en pantalla las donaciones y las entregas.</span></div>
+      <div><b>5</b><span>Guarde una copia de respaldo para que no se pierda nada.</span></div>
+    </div>
+    <h3>Cómo vas a trabajar</h3>
+    <ul>
+      <li>Trabajás solo, siguiendo las actividades en orden.</li>
+      <li>Al final de cada actividad marcá <b>Compruebo</b> y mostrale al profe lo que pide.</li>
+      <li>Cada actividad te plantea un <b>reto</b> y unas misiones. No te damos la solución: usá las <b>pistas de comandos</b>, probá en la terminal e investigá.</li>
+      <li>Ojo con los detalles: espacios, comillas y mayúsculas importan.</li>
+      <li>En cada actividad sacás una <b>captura de pantalla</b> (tecla <code>Impr Pant</code>) y la guardás como <code>actividad1.png</code>, <code>actividad2.png</code>… Al final van todas a tu carpeta de entrega.</li>
+      <li>Si algo falla, tocá el botón <b>Ayuda</b> abajo a la derecha.</li>
+      <li>Los nombres de familias y barrios que uses en las pruebas son inventados.</li>
+    </ul>
+    <p class="rule">Regla de oro: todo lo que hace el script, primero lo probás vos a mano en la terminal.</p>
+  </section>
+
+  <section class="panel" data-title="Actividad 1" hidden>
+    <span class="tag">Actividad 1</span>
+    <h2>Ordenar el depósito</h2>
+    <p class="learn"><b>Aprendés:</b> moverte por las carpetas desde la terminal.</p>
+    <div class="goal"><span>Reto</span><p>Creá desde la terminal esta estructura de carpetas:</p><div class="term"><div class="term-top"><i></i><i></i><i></i><span>lo que tenés que lograr</span></div><pre>Resguardo/
+├── donaciones/
+├── entregas/
+└── respaldo/</pre></div></div>
+    <h3>Tus misiones</h3>
+    <ol class="do"><li><div>Averiguá en qué carpeta estás parado.</div></li><li><div>Mirá qué archivos y carpetas hay ahí.</div></li><li><div>Creá la carpeta <code>Resguardo</code> y entrá en ella.</div></li><li><div>Creá adentro las tres carpetas del dibujo.</div></li><li><div>Volvé a la carpeta anterior y mostrá toda la estructura, con sus subcarpetas.</div></li></ol>
+    <div class="hints"><p class="hints-title">Pistas: tocá un comando para ver qué hace</p><div class="chips"><button type="button" class="chip" data-what="Muestra la ruta de la carpeta donde estás parado." data-ex="pwd" data-tip="">pwd</button><button type="button" class="chip" data-what="Lista los archivos y carpetas que hay donde estás." data-ex="ls" data-tip="">ls</button><button type="button" class="chip" data-what="Crea una carpeta nueva. Podés crear varias a la vez separándolas con espacios." data-ex="mkdir fotos videos" data-tip="Los nombres sin espacios ni tildes te van a evitar problemas.">mkdir</button><button type="button" class="chip" data-what="Entra a una carpeta." data-ex="cd fotos" data-tip="">cd</button><button type="button" class="chip" data-what="Sube a la carpeta anterior, la que contiene a la actual." data-ex="cd .." data-tip="Fijate el espacio entre cd y los dos puntos.">cd ..</button><button type="button" class="chip" data-what="Lista una carpeta y todo lo que tiene adentro, incluidas las subcarpetas." data-ex="ls -R Musica" data-tip="">ls -R</button></div><div class="hint-panel" aria-live="polite"><p class="hint-empty">Elegí un comando de arriba. Después probalo vos en la terminal.</p></div></div>
+    <div class="checkbox"><h3>Compruebo</h3><label class="check"><input type="checkbox" id="c1a"><span>Tengo la carpeta <code>Resguardo</code> con sus tres carpetas adentro.</span></label><label class="check"><input type="checkbox" id="c1b"><span>Le mostré al profe la estructura completa en la terminal.</span></label><label class="check"><input type="checkbox" id="c1c"><span>Saqué la captura de pantalla y la guardé como <code>actividad1.png</code>.</span></label></div>
+  </section>
+
+  <section class="panel" data-title="Actividad 2" hidden>
+    <span class="tag">Actividad 2</span>
+    <h2>Anotar lo que llega</h2>
+    <p class="learn"><b>Aprendés:</b> crear archivos y escribir en ellos sin abrir ningún programa.</p>
+    <div class="goal"><span>Reto</span><p>Dentro de <code>donaciones</code>, creá el archivo <code>ropa.txt</code> con 5 prendas, una por línea, <b>sin usar ningún editor</b>.</p></div>
+    <h3>Tus misiones</h3>
+    <ol class="do"><li><div>Mostrá un mensaje cualquiera en pantalla.</div></li><li><div>Hacé que ese texto vaya a un archivo en lugar de la pantalla: creá <code>ropa.txt</code> con la primera prenda.</div></li><li><div>Agregá 4 prendas más sin borrar las anteriores.</div></li><li><div>Mostrá el contenido del archivo.</div></li><li><div>Experimento: ¿qué pasa si usás una sola flecha para agregar otra prenda? Anotá lo que descubriste.</div></li><li><div>Dejá el archivo con 5 prendas y contá cuántas líneas tiene.</div></li></ol>
+    <div class="hints"><p class="hints-title">Pistas: tocá un comando para ver qué hace</p><div class="chips"><button type="button" class="chip" data-what="Muestra un texto en pantalla." data-ex="echo &quot;Hola mundo&quot;" data-tip="">echo</button><button type="button" class="chip" data-what="Manda lo que saldría en pantalla a un archivo. Si el archivo ya existe, lo reemplaza." data-ex="echo &quot;Lunes&quot; &gt; dias.txt" data-tip="Cuidado: borra lo que había antes.">&gt;</button><button type="button" class="chip" data-what="Agrega al final de un archivo, sin borrar lo que ya tenía." data-ex="echo &quot;Martes&quot; &gt;&gt; dias.txt" data-tip="">&gt;&gt;</button><button type="button" class="chip" data-what="Muestra en pantalla el contenido de un archivo." data-ex="cat dias.txt" data-tip="">cat</button><button type="button" class="chip" data-what="Cuenta cuántas líneas tiene un archivo." data-ex="wc -l dias.txt" data-tip="Con &lt; delante del archivo muestra solo el número: wc -l &lt; dias.txt">wc -l</button></div><div class="hint-panel" aria-live="polite"><p class="hint-empty">Elegí un comando de arriba. Después probalo vos en la terminal.</p></div></div>
+    <div class="checkbox"><h3>Compruebo</h3><label class="check"><input type="checkbox" id="c2a"><span>Puedo explicar la diferencia entre <code>&gt;</code> y <code>&gt;&gt;</code>.</span></label><label class="check"><input type="checkbox" id="c2b"><span>Tengo <code>ropa.txt</code> con 5 prendas.</span></label><label class="check"><input type="checkbox" id="c2c"><span>Saqué la captura de pantalla y la guardé como <code>actividad2.png</code>.</span></label></div>
+  </section>
+
+  <section class="panel" data-title="Actividad 3" hidden>
+    <span class="tag">Actividad 3</span>
+    <h2>Mi primer script</h2>
+    <p class="learn"><b>Aprendés:</b> guardar comandos en un archivo y ejecutarlo.</p>
+    <div class="goal"><span>Reto</span><p>Creá <code>hola.sh</code>, un script que al ejecutarse muestre esto:</p><div class="term"><div class="term-top"><i></i><i></i><i></i><span>resultado esperado</span></div><pre>Resguardo UTU Bella Unión
+Hoy es:
+(la fecha de hoy)</pre></div></div>
+    <h3>Tus misiones</h3>
+    <ol class="do"><li><div>Abrí un archivo nuevo llamado <code>hola.sh</code> con el editor de la terminal.</div></li><li><div>En la primera línea indicá que es un script de Bash.</div></li><li><div>Agregá los comandos que muestran el mensaje y la fecha.</div></li><li><div>Guardá y salí del editor.</div></li><li><div>Dale permiso de ejecución y ejecutalo.</div></li></ol>
+    <div class="hints"><p class="hints-title">Pistas: tocá un comando para ver qué hace</p><div class="chips"><button type="button" class="chip" data-what="Editor de texto dentro de la terminal. Si el archivo no existe, lo crea." data-ex="nano notas.txt" data-tip="Guardar: Ctrl + O y Enter. Salir: Ctrl + X.">nano</button><button type="button" class="chip" data-what="Va en la primera línea de un script. Le indica a la computadora que lo ejecute con Bash." data-ex="#!/bin/bash" data-tip="">#!/bin/bash</button><button type="button" class="chip" data-what="Muestra un texto en pantalla." data-ex="echo &quot;Hola mundo&quot;" data-tip="">echo</button><button type="button" class="chip" data-what="Muestra la fecha y la hora actual. Con + le das un formato." data-ex="date +%d/%m/%Y" data-tip="%d es el día, %m el mes y %Y el año.">date</button><button type="button" class="chip" data-what="Le da permiso de ejecución a un archivo. Sin esto, el script no corre." data-ex="chmod +x prueba.sh" data-tip="">chmod +x</button><button type="button" class="chip" data-what="Ejecuta un script que está en la carpeta actual." data-ex="./prueba.sh" data-tip="">./</button></div><div class="hint-panel" aria-live="polite"><p class="hint-empty">Elegí un comando de arriba. Después probalo vos en la terminal.</p></div></div>
+    <div class="checkbox"><h3>Compruebo</h3><label class="check"><input type="checkbox" id="c3a"><span>Mi script muestra el mensaje y la fecha.</span></label><label class="check"><input type="checkbox" id="c3b"><span>Sé para qué sirve <code>chmod +x</code>.</span></label><label class="check"><input type="checkbox" id="c3c"><span>Saqué la captura de pantalla y la guardé como <code>actividad3.png</code>.</span></label></div>
+  </section>
+
+  <section class="panel" data-title="Actividad 4" hidden>
+    <span class="tag">Actividad 4</span>
+    <h2>El script pregunta</h2>
+    <p class="learn"><b>Aprendés:</b> usar variables y pedirle datos al usuario.</p>
+    <div class="goal"><span>Reto</span><p>Creá <code>donar.sh</code>: tiene que preguntar <b>qué se donó</b> y <b>cuántos</b>, y agregar una línea al archivo <code>Resguardo/donaciones/lista.txt</code>. Después de varias donaciones, el archivo debería verse así:</p><div class="term"><div class="term-top"><i></i><i></i><i></i><span>lista.txt</span></div><pre>10 x Frazadas
+24 x Agua
+6 x Colchones</pre></div></div>
+    <h3>Tus misiones</h3>
+    <ol class="do"><li><div>Creá el archivo <code>donar.sh</code> con su primera línea de Bash.</div></li><li><div>Pedí qué se donó y guardalo en una variable.</div></li><li><div>Pedí la cantidad y guardala en otra variable.</div></li><li><div>Escribí una línea con las dos variables en <code>lista.txt</code>, sin borrar lo anterior.</div></li><li><div>Mostrá un mensaje que confirme que se registró.</div></li><li><div>Ejecutalo 6 veces y contá cuántas donaciones hay.</div></li></ol>
+    <div class="hints"><p class="hints-title">Pistas: tocá un comando para ver qué hace</p><div class="chips"><button type="button" class="chip" data-what="Muestra una pregunta, espera que el usuario escriba y guarda la respuesta en una variable." data-ex="read -p &quot;¿Cómo te llamás?: &quot; nombre" data-tip="">read -p</button><button type="button" class="chip" data-what="Para usar lo que guardaste en una variable, le ponés $ delante." data-ex="echo &quot;Hola $nombre&quot;" data-tip="">$variable</button><button type="button" class="chip" data-what="Muestra un texto en pantalla." data-ex="echo &quot;Hola mundo&quot;" data-tip="">echo</button><button type="button" class="chip" data-what="Agrega al final de un archivo, sin borrar lo que ya tenía." data-ex="echo &quot;Martes&quot; &gt;&gt; dias.txt" data-tip="">&gt;&gt;</button><button type="button" class="chip" data-what="Cuenta cuántas líneas tiene un archivo." data-ex="wc -l dias.txt" data-tip="Con &lt; delante del archivo muestra solo el número: wc -l &lt; dias.txt">wc -l</button><button type="button" class="chip" data-what="Le da permiso de ejecución a un archivo. Sin esto, el script no corre." data-ex="chmod +x prueba.sh" data-tip="">chmod +x</button></div><div class="hint-panel" aria-live="polite"><p class="hint-empty">Elegí un comando de arriba. Después probalo vos en la terminal.</p></div></div>
+    <div class="checkbox"><h3>Compruebo</h3><label class="check"><input type="checkbox" id="c4a"><span>Tengo 6 donaciones en <code>lista.txt</code>.</span></label><label class="check"><input type="checkbox" id="c4b"><span>Puedo explicar qué es una variable y para qué usé <code>$</code>.</span></label><label class="check"><input type="checkbox" id="c4c"><span>Saqué la captura de pantalla y la guardé como <code>actividad4.png</code>.</span></label></div>
+  </section>
+
+  <section class="panel" data-title="Actividad 5" hidden>
+    <span class="tag">Actividad 5</span>
+    <h2>Entregas y respaldo</h2>
+    <p class="learn"><b>Aprendés:</b> guardar la fecha en una variable y copiar archivos.</p>
+    <div class="goal"><span>Reto</span><p>Creá <code>entregar.sh</code>: tiene que preguntar <b>a quién</b> se entrega, <b>qué</b> y <b>cuántos</b>, y guardar una línea con la fecha en <code>Resguardo/entregas/entregas.txt</code>, así:</p><div class="term"><div class="term-top"><i></i><i></i><i></i><span>entregas.txt</span></div><pre>19/10/2026 | 2 x Frazadas -&gt; Familia 1
+19/10/2026 | 6 x Agua -&gt; Barrio Norte</pre></div></div>
+    <h3>Tus misiones</h3>
+    <ol class="do"><li><div>Creá <code>entregar.sh</code> y pedí los tres datos.</div></li><li><div>Guardá la fecha de hoy en una variable, con formato día/mes/año.</div></li><li><div>Escribí la línea completa en <code>entregas.txt</code> sin borrar lo anterior.</div></li><li><div>Registrá 3 entregas con nombres inventados y miralas.</div></li><li><div>Hacé una copia de <code>entregas.txt</code> en la carpeta <code>respaldo</code> y comprobá que está.</div></li></ol>
+    <div class="hints"><p class="hints-title">Pistas: tocá un comando para ver qué hace</p><div class="chips"><button type="button" class="chip" data-what="Muestra una pregunta, espera que el usuario escriba y guarda la respuesta en una variable." data-ex="read -p &quot;¿Cómo te llamás?: &quot; nombre" data-tip="">read -p</button><button type="button" class="chip" data-what="Muestra la fecha y la hora actual. Con + le das un formato." data-ex="date +%d/%m/%Y" data-tip="%d es el día, %m el mes y %Y el año.">date</button><button type="button" class="chip" data-what="Guarda en una variable el resultado de un comando." data-ex="hoy=$(date +%d/%m)
+echo &quot;Hoy es $hoy&quot;" data-tip="No dejes espacios alrededor del =.">variable=$(…)</button><button type="button" class="chip" data-what="Agrega al final de un archivo, sin borrar lo que ya tenía." data-ex="echo &quot;Martes&quot; &gt;&gt; dias.txt" data-tip="">&gt;&gt;</button><button type="button" class="chip" data-what="Copia un archivo a otra carpeta. Si le pasás varios archivos, copia todos." data-ex="cp foto.png respaldo/" data-tip="">cp</button><button type="button" class="chip" data-what="Lista los archivos y carpetas que hay donde estás." data-ex="ls" data-tip="">ls</button></div><div class="hint-panel" aria-live="polite"><p class="hint-empty">Elegí un comando de arriba. Después probalo vos en la terminal.</p></div></div>
+    <div class="checkbox"><h3>Compruebo</h3><label class="check"><input type="checkbox" id="c5a"><span>Tengo 3 entregas con fecha.</span></label><label class="check"><input type="checkbox" id="c5b"><span>Hay una copia en la carpeta <code>respaldo</code>.</span></label><label class="check"><input type="checkbox" id="c5c"><span>Saqué la captura de pantalla y la guardé como <code>actividad5.png</code>.</span></label></div>
+  </section>
+
+  <section class="panel" data-title="Actividad 6" hidden>
+    <span class="tag">Actividad 6</span>
+    <h2>Todo junto en resguardo.sh</h2>
+    <p class="learn"><b>Aprendés:</b> unir lo que hiciste en un solo script.</p>
+    <div class="goal"><span>Reto</span><p>Creá <code>resguardo.sh</code>, que haga las 5 partes de la misión en orden. Usá esta base y completá debajo de cada comentario:</p><div class="term"><div class="term-top"><i></i><i></i><i></i><span>resguardo.sh</span><button class="copy">Copiar</button></div><pre>#!/bin/bash
+echo "=== Resguardo UTU Bella Unión ==="
+
+<span class="c"># 1. Crear las carpetas (sin error si ya existen)</span>
+
+<span class="c"># 2. Registrar una donación</span>
+
+<span class="c"># 3. Registrar una entrega</span>
+
+<span class="c"># 4. Mostrar las donaciones y las entregas</span>
+
+<span class="c"># 5. Hacer el respaldo de los dos archivos</span></pre></div></div>
+    <h3>Tus misiones</h3>
+    <ol class="do"><li><div>Copiá la base en <code>resguardo.sh</code>.</div></li><li><div>Completá cada parte reutilizando lo que hiciste en las actividades anteriores.</div></li><li><div>Ejecutalo <b>2 veces seguidas</b> y revisá que los datos de la primera vez sigan estando.</div></li><li><div>Si algo falla, leé el error y probá cada parte por separado.</div></li></ol>
+    <div class="hints"><p class="hints-title">Pistas: tocá un comando para ver qué hace</p><div class="chips"><button type="button" class="chip" data-what="Todo lo que va después de # es un comentario: la computadora no lo ejecuta. Sirve para dejarte notas." data-ex="# esto es una nota" data-tip="">#</button><button type="button" class="chip" data-what="Crea carpetas, incluso una dentro de otra, y no da error si ya existen." data-ex="mkdir -p viaje/fotos" data-tip="">mkdir -p</button><button type="button" class="chip" data-what="Muestra en pantalla el contenido de un archivo." data-ex="cat dias.txt" data-tip="">cat</button><button type="button" class="chip" data-what="Copia un archivo a otra carpeta. Si le pasás varios archivos, copia todos." data-ex="cp foto.png respaldo/" data-tip="">cp</button><button type="button" class="chip" data-what="Muestra el manual de un comando. Salís con la tecla q." data-ex="man ls" data-tip="">man</button></div><div class="hint-panel" aria-live="polite"><p class="hint-empty">Elegí un comando de arriba. Después probalo vos en la terminal.</p></div></div>
+    <div class="checkbox"><h3>Compruebo</h3><label class="check"><input type="checkbox" id="c6a"><span><code>resguardo.sh</code> hace las 5 partes de la misión.</span></label><label class="check"><input type="checkbox" id="c6b"><span>Lo ejecuté 2 veces y no se borraron datos.</span></label><label class="check"><input type="checkbox" id="c6c"><span>Saqué la captura de pantalla y la guardé como <code>actividad6.png</code>.</span></label></div>
+    <p class="extra"><b>Desafío extra (opcional):</b> al final de <code>resguardo.sh</code>, mostrá cuántas donaciones hay en total.</p>
+  </section>
+
+  <!-- 7 ENTREGA -->
+  <section class="panel" data-title="Entrega" hidden>
+    <span class="tag">Cierre</span>
+    <h2>Entrega y evaluación</h2>
+    <p>Entregás <b>una carpeta</b> con todos tus scripts y tus 6 capturas. Ponele tu nombre, por ejemplo <code>Entrega_Ana</code>. Tiene que quedar así:</p>
+    <div class="term"><div class="term-top"><i></i><i></i><i></i><span>estructura de la carpeta</span></div><pre>Entrega_TuNombre/
+├── hola.sh
+├── donar.sh
+├── entregar.sh
+├── resguardo.sh
+└── capturas/
+    ├── actividad1.png
+    ├── actividad2.png
+    ├── actividad3.png
+    ├── actividad4.png
+    ├── actividad5.png
+    └── actividad6.png</pre></div>
+    <h3>Cómo armarla</h3>
+    <ol class="do">
+      <li><div>Creá la carpeta con tu nombre y, adentro, la carpeta <code>capturas</code>.</div></li>
+      <li><div>Copiá tus 4 scripts adentro de tu carpeta.</div></li>
+      <li><div>Las capturas suelen guardarse en la carpeta <b>Imágenes</b>. Pasalas a <code>capturas</code> y revisá que cada una tenga su nombre.</div></li>
+      <li><div>Mostrá todo el contenido de tu carpeta para revisar que no falte nada.</div></li>
+      <li><div>Entregá la carpeta como te indique el profe.</div></li>
+    </ol>
+    <div class="hints"><p class="hints-title">Pistas: tocá un comando para ver qué hace</p><div class="chips"><button type="button" class="chip" data-what="Crea carpetas, incluso una dentro de otra, y no da error si ya existen." data-ex="mkdir -p viaje/fotos" data-tip="">mkdir -p</button><button type="button" class="chip" data-what="Copia un archivo a otra carpeta. Si le pasás varios archivos, copia todos." data-ex="cp foto.png respaldo/" data-tip="">cp</button><button type="button" class="chip" data-what="Mueve un archivo a otra carpeta, o le cambia el nombre." data-ex="mv foto.png vacaciones.png" data-tip="">mv</button><button type="button" class="chip" data-what="Lista una carpeta y todo lo que tiene adentro, incluidas las subcarpetas." data-ex="ls -R Musica" data-tip="">ls -R</button></div><div class="hint-panel" aria-live="polite"><p class="hint-empty">Elegí un comando de arriba. Después probalo vos en la terminal.</p></div></div>
+    <div class="checkbox"><h3>Compruebo la entrega</h3>
+      <label class="check"><input type="checkbox" id="e1"><span>Mi carpeta tiene los 4 scripts.</span></label>
+      <label class="check"><input type="checkbox" id="e2"><span>Tiene las 6 capturas, de <code>actividad1.png</code> a <code>actividad6.png</code>.</span></label>
+      <label class="check"><input type="checkbox" id="e3"><span>Tuve la charla de 5 minutos con el profe y expliqué 3 comandos.</span></label>
+    </div>
+    <h3>Cómo te van a evaluar</h3>
+    <div class="tbl"><table>
+      <thead><tr><th>Criterio</th><th>Logrado (3)</th><th>En proceso (2)</th><th>Inicial (1)</th></tr></thead>
+      <tbody>
+        <tr><td>Carpetas y archivos</td><td>El script crea las carpetas y guarda datos</td><td>Funciona con errores</td><td>No funciona</td></tr>
+        <tr><td>Variables y <code>read</code></td><td>Pide datos y los guarda bien</td><td>Pide datos con algún error</td><td>No pide datos</td></tr>
+        <tr><td><code>&gt;&gt;</code> y respaldo</td><td>Los datos se acumulan y hay respaldo</td><td>Falta una de las dos cosas</td><td>No guarda ni respalda</td></tr>
+        <tr><td>Carpeta de entrega</td><td>Los 4 scripts y las 6 capturas, bien nombrados</td><td>Falta algún archivo</td><td>Faltan varios archivos</td></tr>
+        <tr><td>Explicación oral</td><td>Explica 3 comandos con sus palabras</td><td>Explica con ayuda</td><td>No logra explicar</td></tr>
+      </tbody>
+    </table></div>
+    <p>Para aprobar necesitás cumplir los 6 puntos de control y llegar a <b>10 de 15</b> puntos.</p>
+    <div class="done-msg" id="doneMsg" hidden><div class="big">¡Resguardo listo!</div><p>Completaste todos los controles. Mostrale tu trabajo al profe.</p></div>
+  </section>
+
+  <div class="navbtns">
+    <button class="btn" id="prev">← Anterior</button>
+    <button class="btn primary" id="next">Siguiente →</button>
+  </div>
+</main>
+
+<button class="btn help-btn" id="helpBtn">Ayuda</button>
+<dialog id="help">
+  <div class="in">
+    <span class="tag">Ayuda</span>
+    <h2>Errores comunes</h2>
+    <div class="tbl"><table>
+      <thead><tr><th>Si te pasa esto</th><th>Probá esto</th></tr></thead>
+      <tbody>
+        <tr><td>Dice "Permiso denegado"</td><td>Te faltó <code>chmod +x nombre.sh</code></td></tr>
+        <tr><td>Dice "No existe el archivo o el directorio"</td><td>Revisá con <code>pwd</code> dónde estás y con <code>ls</code> si la carpeta existe</td></tr>
+        <tr><td>Se borraron los datos anteriores</td><td>Usaste <code>&gt;</code> en lugar de <code>&gt;&gt;</code></td></tr>
+        <tr><td>La variable sale vacía</td><td>Sin espacios en el <code>=</code>: <code>fecha=$(date)</code></td></tr>
+        <tr><td><code>nano</code> no guarda</td><td><code>Ctrl + O</code>, Enter, y salís con <code>Ctrl + X</code></td></tr>
+        <tr><td>No sabés qué hace un comando</td><td>Escribí <code>man ls</code> (salís con <code>q</code>)</td></tr>
+      </tbody>
+    </table></div>
+    <div class="navbtns"><span></span><button class="btn primary" id="closeHelp">Entendido</button></div>
+  </div>
+</dialog>
+
+<footer>
+  <div class="wrap">
+    <span>Mini proyecto · Programación · UTU Bella Unión</span>
+    <strong>Prof. Bruno Silva</strong>
+  </div>
+</footer>
+
+<script>
+(function(){
+  const panels=[...document.querySelectorAll('section.panel')];
+  const stepsNav=document.getElementById('steps');
+  const prev=document.getElementById('prev'), next=document.getElementById('next');
+  const checks=[...document.querySelectorAll('input[type=checkbox]')];
+  const KEY='resguardo-v3';
+  let state={step:0,checks:{}};
+  try{const s=JSON.parse(localStorage.getItem(KEY)||'null'); if(s) state=Object.assign(state,s);}catch(e){}
+  function save(){try{localStorage.setItem(KEY,JSON.stringify(state));}catch(e){}}
+
+  const btns=panels.map((p,i)=>{
+    const b=document.createElement('button');
+    b.type='button'; b.textContent=p.dataset.title;
+    b.addEventListener('click',()=>go(i));
+    stepsNav.appendChild(b); return b;
+  });
+
+  checks.forEach(c=>{
+    c.checked=!!state.checks[c.id];
+    c.addEventListener('change',()=>{state.checks[c.id]=c.checked; save(); refresh();});
+  });
+
+  function panelDone(p){const cs=p.querySelectorAll('input[type=checkbox]'); return cs.length>0 && [...cs].every(c=>c.checked);}
+
+  function refresh(){
+    const n=checks.filter(c=>c.checked).length, t=checks.length;
+    document.getElementById('gaugeFill').style.width=(n/t*100)+'%';
+    document.getElementById('gauge').setAttribute('aria-valuenow',Math.round(n/t*100));
+    document.getElementById('gaugeText').textContent=n+' / '+t;
+    btns.forEach((b,i)=>b.classList.toggle('done',panelDone(panels[i])));
+    document.getElementById('doneMsg').hidden = n!==t;
+  }
+
+  function go(i){
+    i=Math.max(0,Math.min(panels.length-1,i));
+    panels.forEach((p,j)=>{p.hidden=j!==i; if(j===i){p.style.animation='none';p.offsetHeight;p.style.animation='';}});
+    btns.forEach((b,j)=>{ if(j===i) b.setAttribute('aria-current','step'); else b.removeAttribute('aria-current'); });
+    const b=btns[i]; stepsNav.scrollTo({left:b.offsetLeft-stepsNav.clientWidth/2+b.clientWidth/2,behavior:'smooth'});
+    prev.disabled=i===0;
+    next.textContent= i===panels.length-1 ? 'Volver al inicio' : 'Siguiente →';
+    state.step=i; save();
+  }
+  prev.addEventListener('click',()=>{go(state.step-1); window.scrollTo({top:0,behavior:'smooth'});});
+  next.addEventListener('click',()=>{go(state.step===panels.length-1?0:state.step+1); window.scrollTo({top:0,behavior:'smooth'});});
+
+  document.querySelectorAll('.copy').forEach(b=>{
+    b.addEventListener('click',()=>{
+      const pre=b.closest('.term').querySelector('pre');
+      const txt=pre.innerText;
+      const ok=()=>{b.textContent='¡Copiado!';b.classList.add('ok');setTimeout(()=>{b.textContent='Copiar';b.classList.remove('ok');},1500);};
+      const fallback=()=>{const r=document.createRange();r.selectNodeContents(pre);const s=getSelection();s.removeAllRanges();s.addRange(r);b.textContent='Seleccionado: Ctrl+C';};
+      try{navigator.clipboard.writeText(txt).then(ok,fallback);}catch(e){fallback();}
+    });
+  });
+
+
+  document.querySelectorAll('.hints').forEach(box=>{
+    const panel=box.querySelector('.hint-panel');
+    box.querySelectorAll('.chip').forEach(ch=>{
+      ch.setAttribute('aria-pressed','false');
+      ch.addEventListener('click',()=>{
+        box.querySelectorAll('.chip').forEach(o=>o.setAttribute('aria-pressed','false'));
+        ch.setAttribute('aria-pressed','true'); ch.classList.add('seen');
+        const card=document.createElement('div'); card.className='hint-card';
+        const cmd=document.createElement('div'); cmd.className='cmd'; cmd.textContent=ch.textContent;
+        const l1=document.createElement('div'); l1.className='lbl'; l1.textContent='Qué hace';
+        const w=document.createElement('p'); w.textContent=ch.dataset.what;
+        const l2=document.createElement('div'); l2.className='lbl'; l2.textContent='Ejemplo (no es tu solución)';
+        const t=document.createElement('div'); t.className='term';
+        t.innerHTML='<div class="term-top"><i></i><i></i><i></i><span>ejemplo</span></div>';
+        const pre=document.createElement('pre'); pre.textContent=ch.dataset.ex; t.appendChild(pre);
+        card.append(cmd,l1,w,l2,t);
+        if(ch.dataset.tip){const tp=document.createElement('p'); tp.className='tip'; tp.textContent='Ojo: '+ch.dataset.tip; card.appendChild(tp);}
+        panel.replaceChildren(card);
+      });
+    });
+  });
+
+  const dlg=document.getElementById('help');
+  document.getElementById('helpBtn').addEventListener('click',()=>{try{dlg.showModal();}catch(e){dlg.setAttribute('open','');}});
+  document.getElementById('closeHelp').addEventListener('click',()=>dlg.close());
+
+  refresh(); go(state.step||0);
+})();
+</script>
+
+</body></html>
